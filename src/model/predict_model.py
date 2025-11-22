@@ -13,7 +13,7 @@ from src.config import (TEST_DATA_PATH,
                         TRAIN_CATEGORICAL_FEATURES, TRAIN_NUMERICAL_FEATURES,
                         MODEL_VERSION, ICD_MAPPING_PATH,
                         SUBJECT_ID, HADM_ID, MODEL_PATH)
-from src.feature_engineering.feature_engineering import  create_basic_features, encoder_demographics
+from src.feature_engineering.feature_engineering import  create_basic_features, encoder_demographics, apply_icd9_mapping
 from src.preprocessing.preprocessor import change_feature_names
 
 def predict_model():
@@ -39,11 +39,7 @@ def predict_model():
 
     # Encode ICD9 codes
     mappings = joblib.load(ICD_MAPPING_PATH)
-    df = df.merge(
-        mappings,
-        on=[SUBJECT_ID, HADM_ID],
-        how="inner"
-    )
+    df = apply_icd9_mapping(df, mappings)
     print("✅ ICD9 CODE MAPPED")
 
     X = df[TRAIN_NUMERICAL_FEATURES + TRAIN_CATEGORICAL_FEATURES]
