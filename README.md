@@ -52,3 +52,19 @@
   - /health — simple status check
   - /sampling — returns a random patient example + predicted mortality risk
 - Containerized using Docker and ready for cloud deployment (Render, AWS, or GCP).
+
+### 7. Prediction API Design
+
+- The API includes a `/sampling` endpoint that serves a randomly selected
+test-set patient and returns the corresponding predicted mortality risk.
+- In a real hospital deployment, the model would receive structured EHR records
+containing demographics, vitals, diagnoses, and comorbidities. These fields
+cannot realistically be entered manually through a public API, because:
+
+  - ICD-9 codes have thousands of valid values.
+  - Comorbidities come from a separate table.
+  - DIAGNOSIS strings must match the hospital coding system.
+  - Many numerical features come from automated monitoring equipment.
+
+- Therefore, the `/sampling` endpoint is intentionally included to illustrate the
+model's inference capability, while avoiding an unrealistic manual input interface.
