@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mortality-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars: []
