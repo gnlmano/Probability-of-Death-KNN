@@ -10,23 +10,23 @@
 - As performance metric, you can use AUC for the binary classification case, but feel free to report as well any other metric if you can justify that is particularly suitable for this case.
 
 ### Project Summary
-1. Data Overview
+#### 1. Data Overview
 - The project uses the MIMIC-III ICU dataset (single-row per patient stay).
 - Includes: demographics, vitals, lab summaries, main diagnosis, and additional comorbidities in a separate long-format table.
 - Target: HOSPITAL_EXPIRE_FLAG (binary mortality indicator).
 
-2. Task: Train a KNN Classifier
+#### 2. Task: Train a KNN Classifier
 - Initial requirement was to train and tune a K-Nearest Neighbors model.
 - Goal: build a clinically meaningful mortality predictor, evaluated with F2-score.
 
-3. Why KNN Fails for This Problem
+#### 3. Why KNN Fails for This Problem
 - During tuning, k kept collapsing to 1, and weights='distance' was always preferred.
 - KNN essentially memorized training samples, giving perfect in-sample scores.
 - High dimensionality + imbalanced mortality labels + noisy clinical features → KNN becomes unstable.
 - Despite good CV scores, test performance dropped, exposing overfitting.
 - Conclusion: KNN is not a suitable model for ICU risk prediction.
 
-4. Moving Beyond KNN: Better Models
+#### 4. Moving Beyond KNN: Better Models
 - Tried several alternatives:
   - logistic regression with class weights
   - random forests
@@ -34,7 +34,7 @@
 - XGBoost consistently performed best, offering strong generalization and robust probability estimates.
 - This model became the final deployed version.
 
-5. Encoding ICD-9 & Diagnosis Without Data Leakage
+#### 5. Encoding ICD-9 & Diagnosis Without Data Leakage
 - ICD-9 and diagnosis fields have huge cardinality and strong outcome associations.
 - Naive target encoding leaks label information across folds.
 - To avoid this, I built a custom out-of-fold (OOF) target encoding pipeline:
@@ -46,7 +46,7 @@
 - Apply the final global mapping to the test set.
 - Result: leakage-free proxy features that improved model performance and interpretability.
 
-6. API Deployment
+#### 6. API Deployment
 - Packaged the final XGBoost pipeline and ICD-9 mappings using joblib.
 - Built a FastAPI service with two endpoints:
   - /health — simple status check
