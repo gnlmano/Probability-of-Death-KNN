@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
-from src.config import (TARGET, ENG_QUART_DAY, ENG_AGE, ADMIT_TIME, DOB, SUBJECT_ID, HADM_ID, ICD9_CODE,
-                        OOF_ENCODING_SPLITS, RANDOM_STATE, RELIGION_MISSING, MARITAL_MISSING, ETHNICITY_MISSING,
-                        ENG_DEMOGRAPHIC,RELIGION, ETHNICITY, MARITAL_STATUS, TARGET, OOF_ENCODING_SPLITS,
-                        RANDOM_STATE, SUBJECT_ID, HADM_ID, ICD9_CODE, MORTALITY_PROXY, COUNT_COMORBIDITIES, MEAN_MORTALITY,
+from src.config import (ENG_QUART_DAY, ENG_AGE, ADMIT_TIME, DOB,
+                        RELIGION_MISSING, MARITAL_MISSING, ETHNICITY_MISSING,
+                        ENG_DEMOGRAPHIC,RELIGION, ETHNICITY, MARITAL_STATUS, TARGET,
+                        SUBJECT_ID, HADM_ID, ICD9_CODE, MORTALITY_PROXY, COUNT_COMORBIDITIES, MEAN_MORTALITY,
                         MAX_MORTALITY)
 
 # CREATE AGE, QUART OF DAY, AND CAP AGE >90
@@ -30,9 +30,9 @@ def encoder_demographics(df):
     marital_missing = MARITAL_MISSING
     ethnicity_missing = ETHNICITY_MISSING
 
-    df["religion_missing"] = df[RELIGION].astype(str).str.upper().isin(religion_missing) | df[RELIGION].isna()
-    df["marital_missing"] = df[MARITAL_STATUS].astype(str).str.upper().isin(marital_missing) | df[MARITAL_STATUS].isna()
-    df["ethnicity_missing"] = df[ETHNICITY].astype(str).str.upper().isin(ethnicity_missing) | df[ETHNICITY].isna()
+    df["religion_missing"] = df[RELIGION].astype("string").str.upper().isin(religion_missing) | df[RELIGION].isna()
+    df["marital_missing"] = df[MARITAL_STATUS].astype("string").str.upper().isin(marital_missing) | df[MARITAL_STATUS].isna()
+    df["ethnicity_missing"] = df[ETHNICITY].astype("string").str.upper().isin(ethnicity_missing) | df[ETHNICITY].isna()
 
     df[ENG_DEMOGRAPHIC] = (
         df[["religion_missing", "marital_missing", "ethnicity_missing"]]
