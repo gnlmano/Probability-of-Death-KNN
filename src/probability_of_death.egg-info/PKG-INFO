@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: probability_of_death
+Version: 0.1.0
+Summary: Mortality prediction preprocessing/modeling pipeline
+Author: Your Name
+Requires-Python: >=3.9
