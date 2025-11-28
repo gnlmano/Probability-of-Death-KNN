@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+np.random.seed(4201)
 from probability_of_death.preprocessing.preprocessor import (
     drop_features,
     change_feature_names,
@@ -8,10 +9,19 @@ from probability_of_death.feature_engineering.feature_engineering import (
     create_basic_features,
     encoder_demographics,
     encoder_icd9_codes,
-    apply_icd9_mapping
-
 )
-from probability_of_death.config import DROP_FEATURES, ID_FEATURES
+from probability_of_death.config import (DROP_FEATURES,
+                                         ID_FEATURES,
+                                         ENG_AGE,
+                                         ENG_QUART_DAY,
+                                         ENG_DEMOGRAPHIC,
+                                         ENGINEERED_MORTALITY_PROXIES,
+                                         ENGINEERED_NUMERICAL_FEATURES,
+                                         ENGINEERED_CATEGORICAL_FEATURES,
+                                         MEAN_MORTALITY,
+                                         MAX_MORTALITY,
+                                         COUNT_COMORBIDITIES,
+)
 
 def random_dates(start, end, n):
     start = pd.to_datetime(start)
@@ -20,7 +30,6 @@ def random_dates(start, end, n):
     return start + pd.to_timedelta(
         np.random.randint(0, (end - start).days, n), unit="D"
     )
-
 
 def make_fake_patient_data(n=10):
     base_dates = pd.date_range("2020-01-01", periods=n, freq="D")
@@ -80,15 +89,27 @@ def test_preprocess():
 
     df = df.drop(ID_FEATURES, axis = 1)
 
-    for col in DROP_FEATURES:
-        assert col not in df.columns, f"Column {col} was not dropped"
+    # Assertions
+    # New features created - inlcudes mortality features (enocder_demographics)
+    for feature in ENGINEERED_MORTALITY_PROXIES + ENGINEERED_NUMERICAL_FEATURES + ENGINEERED_CATEGORICAL_FEATURES:
+        assert feature in df.columns, f"feature {feature} present in dataframe"
 
+    # Features dropped
+    for feature in DROP_FEATURES:
+        assert feature not in df.columns, f"Column {feature} was not dropped"
+    # Age
+    assert pd.api.types.is_numeric_dtype(df[ENG_AGE])
+    assert df[ENG_AGE].between(0, 90).all()
+    # Quarter-of-day
+    assert df[ENG_QUART_DAY].dtype.name == "category"
 
-# test_df = make_fake_patient_data()
-# test_df["DOB"] = random_dates("1920-01-01", "2000-12-31", 10)
-# test_comorbidities_df = make_comorbidities_data()
-#
-# test_df, test_mapping = preprocess(test_df, test_comorbidities_df, None)
-#
-# for col in DROP_FEATURES:
-#     assert col not in test_df.columns, f"Column {col} was not dropped"
+    # Demographic missing
+    assert set(df[ENG_DEMOGRAPHIC].unique()).issubset({0, 1})
+
+    # Mortality proxies:
+    for col in ENGINEERED_MORTALITY_PROXIES:
+        assert pd.api.types.is_numeric_dtype(df[col])
+    assert df[MAX_MORTALITY].between(0, 1).all()
+    assert df[MEAN_MORTALITY].between(0, 1).all()
+    assert df[COUNT_COMORBIDITIES].min() >= 0
+    assert pd.api.types.is_integer_dtype(df[COUNT_COMORBIDITIES])
