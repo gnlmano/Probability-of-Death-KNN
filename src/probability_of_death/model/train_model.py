@@ -7,7 +7,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import recall_score, accuracy_score, precision_score
 from category_encoders.target_encoder import TargetEncoder
 import xgboost as xgb
-from probability_of_death.config import (RAW_DATA_PATH, DROP_FEATURES,
+from probability_of_death.config import (RAW_DATA_PATH, DROP_FEATURES, DIAGNOSIS,
                                              COMORBIDITY_DATA_PATH, TARGET, ID_FEATURES,
                                              TRAIN_CATEGORICAL_FEATURES, TRAIN_NUMERICAL_FEATURES,
                                              XGB_PARAMS, MODEL_VERSION, MODEL_OUTPUT_PATH)
@@ -45,14 +45,20 @@ def preprocessing(df, comorbidities):
     return df, mapping
 
 def train_model_after_preprocessing(df):
+    # DIAGNOSIS should not be in the categorical column
+    TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS = [
+        col for col in TRAIN_CATEGORICAL_FEATURES if col != "DIAGNOSIS"
+    ]
+
     # TRAINING INPUTS
-    X = df[TRAIN_NUMERICAL_FEATURES + TRAIN_CATEGORICAL_FEATURES]
+    X = df[TRAIN_NUMERICAL_FEATURES + TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS + [DIAGNOSIS]]
     y = df[TARGET]
+
     ########################
     ### 2. TRANSFORMERS ####
     ########################
     diagnosis_encoder = TargetEncoder(
-        cols=['DIAGNOSIS'],
+        cols=[DIAGNOSIS],
         smoothing=0.25,
         handle_missing='value',
         handle_unknown='value'
@@ -67,8 +73,8 @@ def train_model_after_preprocessing(df):
     ])
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", numeric_transformer, TRAIN_NUMERICAL_FEATURES),
-            ("cat", categorical_transformer, TRAIN_CATEGORICAL_FEATURES)
+            ("num", numeric_transformer, TRAIN_NUMERICAL_FEATURES + [DIAGNOSIS]),
+            ("cat", categorical_transformer, TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS)
         ],
         remainder='drop'
     )
