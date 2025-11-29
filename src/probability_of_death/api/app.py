@@ -202,6 +202,7 @@ def get_sample_html():
             <h1>Random ICU Sample Prediction</h1>
         <p style="color:#666; font-size:15px; margin-top:-10px;">
             Demographic features are <strong>excluded</strong> from the prediction model to avoid ethical bias.
+            Reload the page to generate new sample and prediction.
         </p>
 
         <p><strong>Row:</strong> {idx}</p>

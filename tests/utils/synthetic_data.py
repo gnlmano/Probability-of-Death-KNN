@@ -6,8 +6,8 @@ C_SUBJECT_ID,
 C_HADM_ID,
 C_SEQ_NUM ,
 C_ICD9_CODE,
-RAW_NUMERICAL_COLS,
-RAW_CATEGORICAL_COLS
+RAW_NUMERICAL_COLS_USED,
+RAW_CATEGORICAL_COLS_USED
 )
 
 def random_dates(start, end, n):
@@ -44,10 +44,10 @@ def make_synthetic_patient_data(n=10):
     df["DOB"] = random_dates("1920-01-01", "2000-12-31", 10)
 
     # For the other features, I use random values
-    for feature in RAW_NUMERICAL_COLS:
+    for feature in RAW_NUMERICAL_COLS_USED:
         if feature not in df.columns:
             df[feature] = np.random.randn(n)
-    for feature in RAW_CATEGORICAL_COLS:
+    for feature in RAW_CATEGORICAL_COLS_USED:
         if feature not in df.columns:
             df[feature] = np.random.choice(["A", "B", "C", "D", "E", "F", "G", "H"])
 

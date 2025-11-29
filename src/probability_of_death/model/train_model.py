@@ -7,7 +7,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import recall_score, accuracy_score, precision_score
 from category_encoders.target_encoder import TargetEncoder
 import xgboost as xgb
-from probability_of_death.config import (RAW_DATA_PATH, TEST_DATA_PATH, DROP_FEATURES,
+from probability_of_death.config import (RAW_DATA_PATH, DROP_FEATURES,
                                              COMORBIDITY_DATA_PATH, TARGET, ID_FEATURES,
                                              TRAIN_CATEGORICAL_FEATURES, TRAIN_NUMERICAL_FEATURES,
                                              XGB_PARAMS, MODEL_VERSION, MODEL_OUTPUT_PATH)
