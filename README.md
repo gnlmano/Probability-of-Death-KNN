@@ -1,70 +1,107 @@
-# Course: Data Science for Decision Making
+# Course: Data Science for Decision Making  
 ## Module: Computational Machine Learning II - Assignment I
 
 ### Prediction project: probability of death
-- In this project, you have to predict the probability of death of a patient that is entering an ICU (Intensive Care Unit), using K-Nearest Neighbor models.
-- The dataset comes from MIMIC project (https://mimic.physionet.org/). MIMIC-III (Medical Information Mart for Intensive Care III) is a large, freely-available database comprising deidentified health-related data associated with over forty thousand patients who stayed in critical care units of the Beth Israel Deaconess Medical Center between 2001 and 2012.
-- Each row of mimic_train.csv corresponds to one ICU stay (hadm_id+ icustay_id) of one patient (subject_id). Column HOSPITAL_EXPIRE_FLAG is the indicator of death (=1) as a result of the current hospital stay; this is the outcome to predict in our modelling exercise. The remaining columns correspond to vitals of each patient (when entering the ICU), plus some general characteristics (age, gender, etc.), and their explanation can be found at mimic_patient_metadata.csv.
-- Please don't use any feature that you infer you don't know the first day of a patient in an ICU.
-- Note that the main cause/disease of patient condition is embedded as a code at ICD9_diagnosis column. The meaning of this code can be found at MIMIC_metadata_diagnose.csv. But this is only the main one; a patient can have co-occurrent diseases (comorbidities). These secondary codes can be found at extra__data/MIMIC_diagnoses.csv.
-- As performance metric, you can use AUC for the binary classification case, but feel free to report as well any other metric if you can justify that is particularly suitable for this case.
+- Goal: predict the probability of death of a patient entering an ICU using supervised learning methods, initially K-Nearest Neighbors.
+- Dataset: MIMIC-III ICU stays (one row per patient stay). Includes demographics, vitals on ICU admission, lab summaries, main diagnosis (ICD-9), and comorbidities from a separate long-format table.
+- Target variable: **HOSPITAL_EXPIRE_FLAG** (binary indicator of in-hospital mortality).
+- Constraint: avoid using any feature that would not be available on the first day of ICU stay.
+- ICD-9 meaning from MIMIC metadata; additional comorbidities from MIMIC_diagnoses.csv.
 
-### Project Summary
-#### 1. Data Overview
-- The project uses the MIMIC-III ICU dataset (single-row per patient stay).
-- Includes: demographics, vitals, lab summaries, main diagnosis, and additional comorbidities in a separate long-format table.
-- Target: HOSPITAL_EXPIRE_FLAG (binary mortality indicator).
+---
 
-#### 2. Task: Train a KNN Classifier
-- Initial requirement was to train and tune a K-Nearest Neighbors model.
-- Goal: build a clinically meaningful mortality predictor, evaluated with F2-score.
+# Project Summary
 
-#### 3. Why KNN Fails for This Problem
-- During tuning, k kept collapsing to 1, and weights='distance' was always preferred.
-- KNN essentially memorized training samples, giving perfect in-sample scores.
-- High dimensionality + imbalanced mortality labels + noisy clinical features → KNN becomes unstable.
-- Despite good CV scores, test performance dropped, exposing overfitting.
-- Conclusion: KNN is not a suitable model for ICU risk prediction.
+### 1. Data Overview
+- Each row represents `subject_id + hadm_id + icustay_id`.  
+- Columns include age, gender, vitals, labs, and diagnosis codes.  
+- Secondary diseases (comorbidities) come from a separate table and must be aggregated manually.  
+- The target (mortality) is relatively rare (≈10%), but not extremely imbalanced, so heavy imbalance treatments were not required.
 
-#### 4. Moving Beyond KNN: Better Models
-- Tried several alternatives:
-  - logistic regression with class weights
-  - random forests
-  - gradient boosted trees
-- XGBoost consistently performed best, offering strong generalization and robust probability estimates.
-- This model became the final deployed version.
+---
 
-#### 5. Encoding ICD-9 & Diagnosis Without Data Leakage
-- ICD-9 and diagnosis fields have huge cardinality and strong outcome associations.
-- Naive target encoding leaks label information across folds.
-- To avoid this, I built a custom out-of-fold (OOF) target encoding pipeline:
-- For each CV fold, compute mortality rates only from the training slice.
-- Merge per-patient comorbidities to get:
-  - max_mortality
-  - mean_mortality
-  - count_comorbidities
-- Apply the final global mapping to the test set.
-- Result: leakage-free proxy features that improved model performance and interpretability.
+### 2. Methodology Pipeline
+- Standard preprocessing to reflect what would be known on day 1 of an ICU stay:
+  - numerical imputation (median)
+  - categorical cleaning and encoding
+  - scaling for distance-based models (important for KNN)
+  - leakage-free joins of comorbidities and diagnosis tables  
+- Stratified train/validation/test split to preserve the mortality proportion.  
+- Cross-validation using **StratifiedKFold**.  
+- Evaluated metrics: AUC and F2-score (to emphasize recall of mortality cases).
 
-#### 6. API Deployment
-- Packaged the final XGBoost pipeline and ICD-9 mappings using joblib.
+---
+
+### 3. Initial Requirement: Train a KNN Classifier
+- Did hyperparameter tuning of KNN (k, weights, metric, distance).  
+- Scaling and normalization were applied appropriately.  
+- Evaluated performance both with AUC and clinically meaningful F2-score.
+
+---
+
+### 4. Why KNN Fails for This Problem
+- Tuning repeatedly collapsed to **k = 1** with **weights='distance'**, meaning KNN essentially memorized the training data.  
+- High dimensionality, noisy vitals, and varied ICD-9 patterns made KNN unstable.  
+- In-sample performance was artificially perfect; CV looked acceptable; but test performance dropped sharply → clear overfitting.  
+- Given the setting (clinical tabular data + thousands of sparse diagnostic codes), KNN is not appropriate for ICU mortality risk modelling.  
+
+**Conclusion:** KNN was used to satisfy assignment requirements, but not selected as the final model.
+
+---
+
+### 5. Moving Beyond KNN: Better Models
+- Evaluated:  
+  - logistic regression with class weights  
+  - random forests  
+  - gradient boosted trees (XGBoost)  
+- The dataset has only modest imbalance (~10%), and **XGBoost already managed this well** without additional techniques (e.g., SMOTE).  
+- XGBoost delivered consistently strong performance on both train and test sets, with stable probability estimates and no signs of overfitting.  
+- Therefore, XGBoost became the final deployed model.
+
+---
+
+### 6. Encoding ICD-9 & Diagnoses Without Data Leakage
+- ICD-9 codes have high cardinality and encode strong clinical information.  
+- Naive target encoding would leak label information across folds.  
+- Implemented a **custom leakage-free out-of-fold target encoding**:
+  - For each CV fold, compute mortality frequencies only from the training slice.
+  - Merge patient-level comorbidities to produce engineered features:
+    - **max_mortality**
+    - **mean_mortality**
+    - **count_comorbidities**
+  - Apply global mappings only after the model is finalized.  
+- These features turned out to be clinically meaningful and statistically powerful.
+
+---
+
+### 7. Model Explainability (SHAP)
+- SHAP analysis confirmed the value of feature engineering:
+  - **mean_mortality** and **max_mortality** were the top two predictors.
+  - Followed by **age at admission**, **target-encoded primary diagnosis**, and **count of comorbidities**.
+  - Next top features came from vitals and lab summaries.  
+- Interpretation: engineered diagnosis-based features successfully captured latent disease severity, supporting clinical plausibility.
+
+---
+
+### 8. API Deployment
+- Final XGBoost pipeline and ICD-9 encoders bundled using joblib.  
 - Built a FastAPI service with two endpoints:
-  - /health — simple status check
-  - /sampling — returns a random patient example + predicted mortality risk
-- Containerized using Docker and ready for cloud deployment (Render, AWS, or GCP).
+  - `/health` — simple liveness check  
+  - `/sampling` — returns a random test-set patient + predicted mortality risk  
+- No manual prediction endpoint is provided, because real ICU inputs require structured EHR fields (ICD-9 lists, vitals, device measurements, etc.), not something feasible via manual API entry.  
+- Containerized with Docker and ready for deployment to Render, AWS, or GCP.
 
-#### 7. Prediction API Design
+---
 
-- The API includes a `/sampling` endpoint that serves a randomly selected
-test-set patient and returns the corresponding predicted mortality risk.
-- In a real hospital deployment, the model would receive structured EHR records
-containing demographics, vitals, diagnoses, and comorbidities. These fields
-cannot realistically be entered manually through a public API, because:
+### 9. Limitations & Ethical Considerations
+- MIMIC-III represents U.S. hospital data (Beth Israel Deaconess), so generalizability to other countries or healthcare systems is limited.  
+- The model is purely academic and not suitable for real clinical decision-making.  
+- Differences in EHR structure, coding practices, and ICU workflows would require significant domain adaptation.
 
-  - ICD-9 codes have thousands of valid values.
-  - Comorbidities come from a separate table.
-  - DIAGNOSIS strings must match the hospital coding system.
-  - Many numerical features come from automated monitoring equipment.
+---
 
-- Therefore, the `/sampling` endpoint is intentionally included to illustrate the
-model's inference capability, while avoiding an unrealistic manual input interface.
+### 10. Future Work
+- Consider calibration strategies (isotonic/Platt) for improved decision thresholds.  
+- Add time-series features from continuous vitals rather than static summaries.  
+- Explore learned embeddings for ICD-9 codes for richer representations.  
+- Validate on external hospital datasets to test generalization.
