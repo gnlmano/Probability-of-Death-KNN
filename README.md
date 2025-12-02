@@ -53,7 +53,7 @@
   - /sampling — returns a random patient example + predicted mortality risk
 - Containerized using Docker and ready for cloud deployment (Render, AWS, or GCP).
 
-### 7. Prediction API Design
+#### 7. Prediction API Design
 
 - The API includes a `/sampling` endpoint that serves a randomly selected
 test-set patient and returns the corresponding predicted mortality risk.
