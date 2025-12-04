@@ -3,7 +3,7 @@ import joblib
 import random
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from src.probability_of_death.config import(
+from probability_of_death.config import(
 TEST_DATA_PATH,
 MODEL_PATH,
 ICD_MAPPING_PATH,
@@ -11,12 +11,12 @@ TRAIN_NUMERICAL_FEATURES,
 DIAGNOSIS,
 TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS
 )
-from src.probability_of_death.feature_engineering.feature_engineering import (
+from probability_of_death.feature_engineering.feature_engineering import (
 create_basic_features,
 encoder_demographics,
 apply_icd9_mapping
 )
-from src.probability_of_death.preprocessing.preprocessor import (
+from probability_of_death.preprocessing.preprocessor import (
 change_feature_names
 )
 
