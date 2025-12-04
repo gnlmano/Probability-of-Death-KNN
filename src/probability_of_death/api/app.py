@@ -8,7 +8,8 @@ TEST_DATA_PATH,
 MODEL_PATH,
 ICD_MAPPING_PATH,
 TRAIN_NUMERICAL_FEATURES,
-TRAIN_CATEGORICAL_FEATURES
+DIAGNOSIS,
+TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS
 )
 from src.probability_of_death.feature_engineering.feature_engineering import (
 create_basic_features,
@@ -73,7 +74,7 @@ def health_check():
 
 def predict_api(df):
     """
-    Applies pre-processing, similar to the predict model steps
+    Applies preprocessing, similar to the predict model steps
     """
     df = df.copy()
 
@@ -87,7 +88,7 @@ def predict_api(df):
     df = apply_icd9_mapping(df, mapping)
 
     # Prepare final df to predict on
-    df = df[TRAIN_NUMERICAL_FEATURES + TRAIN_CATEGORICAL_FEATURES]
+    df = df[TRAIN_NUMERICAL_FEATURES + TRAIN_CATEGORICAL_FEATURES_LESS_DIAGNOSIS + [DIAGNOSIS]]
 
     return df
 

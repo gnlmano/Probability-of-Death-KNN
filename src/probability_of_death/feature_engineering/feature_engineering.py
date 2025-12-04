@@ -6,13 +6,24 @@ from probability_of_death.config import (ENG_QUART_DAY, ENG_AGE, ADMIT_TIME, DOB
                                              SUBJECT_ID, HADM_ID, ICD9_CODE, MORTALITY_PROXY, COUNT_COMORBIDITIES, MEAN_MORTALITY,
                                              MAX_MORTALITY)
 
+import logging
+logger = logging.getLogger(__name__)
+
 # CREATE AGE, QUART OF DAY, AND CAP AGE >90
 def create_basic_features(df):
     # CREATE AGE FEATURE -> AGE ABOVE 90 ARE CENSORED - CAST TO 90
     df[ENG_AGE] = pd.to_datetime(df[ADMIT_TIME]).dt.year - pd.to_datetime(df[DOB]).dt.year
     df[ENG_AGE] = df[ENG_AGE].apply(lambda x: 90 if x > 90 else x)
+    # Make sure there are no negative ages
+    negative_age = (df[ENG_AGE] < 0).sum()
+    if negative_age > 0:
+        logger.warning(f"negative age detected: {negative_age}, Setting to NaN")
+        df.loc[df[ENG_AGE] < 0, ENG_AGE] = np.nan
+
     # CREATE QUARTER OF DAY FOR ADMIT TIME
     df[ENG_QUART_DAY] = np.ceil(pd.to_datetime(df[ADMIT_TIME]).dt.hour / 6).astype("category")
+
+    logger.info("Basic features created successfully")
 
     return df
 
@@ -20,6 +31,7 @@ def create_basic_features(df):
 def encoder_demographics(df):
     """
     The function creates a new feature called "demographic_info_missing".
+    So we only have whether deomgraphics are present or not.
     This is to avoid using demographic features in predicting mortality.
     This avoids ethical issues in using such features to predict mortality.
     """
@@ -40,6 +52,7 @@ def encoder_demographics(df):
         .astype(int)
     )
     df = df.drop(columns = ['religion_missing', 'marital_missing', 'ethnicity_missing'], axis = 1)
+    logger.info("Missing demographic features coded successfully")
 
     return df
 
@@ -58,6 +71,7 @@ def encoder_icd9_codes(
         on=[subject_col, hadm_col],
         how="inner"
     )
+    logger.info("Comorbidity features merged with training data")
 
     comorbidity_df[MORTALITY_PROXY] = comorbidity_df.groupby(icd_col)[target_col].transform("mean")
     icd9_mapping = comorbidity_df.groupby([subject_col, hadm_col]).agg(
@@ -71,12 +85,19 @@ def encoder_icd9_codes(
         icd9_mapping,
         on=[subject_col, hadm_col],
         how="left")
+    logger.info("Comorbidity proxy features merged with training data")
+
+    # Log patients without any comorbidities
+    num_missing = train_df[COUNT_COMORBIDITIES].isna().sum()
+    if num_missing > 0:
+        logger.info(f"{num_missing} patients without any comorbidities ({num_missing/len(train_df):.2%})")
 
     train_df[MAX_MORTALITY] = train_df[MAX_MORTALITY].fillna(0)
     train_df[MEAN_MORTALITY] = train_df[MEAN_MORTALITY].fillna(0)
     train_df[COUNT_COMORBIDITIES] = train_df[COUNT_COMORBIDITIES].fillna(0)
 
-
+    logger.info("Missing mortality proxies replaced with zeros")
+    logger.info("Training data with mortality proxies and ICD9 mapping created")
     return train_df, icd9_mapping
 
 def apply_icd9_mapping(df,
@@ -87,6 +108,10 @@ def apply_icd9_mapping(df,
     df = df.merge(mapping,
                   on=[subject_col, hadm_col],
                   how="left")
+
+    num_missing = df[COUNT_COMORBIDITIES].isna().sum()
+    if num_missing > 0:
+        logger.info(f"{num_missing} patients without any comorbidities ({num_missing / len(df):.2%})")
 
     df[MAX_MORTALITY] = df[MAX_MORTALITY].fillna(0)
     df[MEAN_MORTALITY] = df[MEAN_MORTALITY].fillna(0)
