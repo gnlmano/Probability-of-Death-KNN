@@ -47,7 +47,7 @@ def preprocessing(df, comorbidities):
     comorbidities = change_comorbidities_icd9code(comorbidities)
     logger.info("ICD9 CODES SHORTENED - COMORBIDITIES")
     # Encode ICD9 comorbidities data
-    df, mapping = encoder_icd9_codes(df, comorbidities)
+    df, mapping, global_mean = encoder_icd9_codes(df, comorbidities)
     logger.info("ICD9 CODE ENCODED")
     # Drop ID features
     df = df.drop(ID_FEATURES, axis=1)

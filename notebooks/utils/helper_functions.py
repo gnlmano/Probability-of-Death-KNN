@@ -363,7 +363,8 @@ def oof_icd9_encoder(
     hadm_col="hadm_id",
     icd_col="icd9_code",
     n_splits=5,
-    random_state=42
+    random_state=42,
+    smoothing = 20
 ):
     """
     Computes out-of-fold ICD9 mortality-based features for training data, and a global-encoded dataset for comorbidities proxy
@@ -380,72 +381,88 @@ def oof_icd9_encoder(
 
     y = train[target_col].values  # Needed for folds
 
+    global_mean = train[target_col].mean()
+
     # Empty arrays for OOF features
     oof_max = np.zeros(len(train))
     oof_mean = np.zeros(len(train))
     oof_count = np.zeros(len(train))
-
-
     # K-fold loop
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
     for train_idx, val_idx in kf.split(train):
-
         fold_train = train.loc[train_idx, [subject_col, hadm_col, target_col]]
         fold_val = train.loc[val_idx, [subject_col, hadm_col]]
 
-        # Merge comorbidities with fold-train labels only
+        # Comorbidities linked to fold-train rows
         fold_com = comorbidity_df.merge(
             fold_train,
             on=[subject_col, hadm_col],
             how="inner"
         )
 
-        # Compute ICD9 mortality from fold-train only
-        icd_mortality_fold = fold_com.groupby(icd_col)[target_col].mean()
+        # Compute smoothed ICD mortality for this fold
+        icd_stats = (
+            fold_com.groupby(icd_col)[target_col]
+            .agg(['mean', 'count'])
+            .assign(
+                smoothed=lambda df: (df['count'] * df['mean'] + smoothing * global_mean) / (df['count'] + smoothing))
+        )
 
-        # Compute per-patient mortality features for validation fold
+        # Merge fold-val comorbidities
         fold_val_com = comorbidity_df.merge(
             fold_val,
             on=[subject_col, hadm_col],
             how="inner"
         )
 
-        # Map ICD9 → mortality proxies
-        fold_val_com["mortality_proxy"] = fold_val_com[icd_col].map(icd_mortality_fold)
+        # Map smoothed mortality estimates
+        fold_val_com["mortality_proxy"] = fold_val_com[icd_col].map(icd_stats["smoothed"])
 
-        # Aggregate per patient
+        # Replace unseen ICDs → global mean
+        fold_val_com["mortality_proxy"] = fold_val_com["mortality_proxy"].fillna(global_mean)
+
+        # Aggregate at patient-level
         agg = fold_val_com.groupby([subject_col, hadm_col]).agg(
             max_mortality=("mortality_proxy", "max"),
             mean_mortality=("mortality_proxy", "mean"),
             count_comorbidities=(icd_col, "count")
         ).reset_index()
 
-        # Merge onto validation rows
-        merged = fold_val.merge(agg, on=[subject_col, hadm_col], how="left")
+        merged = fold_val.merge(agg, on=[subject_col, hadm_col], how="left").fillna(0)
 
-        # Store results
-        oof_max[val_idx] = merged["max_mortality"].fillna(0)
-        oof_mean[val_idx] = merged["mean_mortality"].fillna(0)
-        oof_count[val_idx] = merged["count_comorbidities"].fillna(0)
+        # Store into OOF slots
+        oof_max[val_idx] = merged["max_mortality"]
+        oof_mean[val_idx] = merged["mean_mortality"]
+        oof_count[val_idx] = merged["count_comorbidities"]
 
-    # Enocder - global data for test set.
-    # Use full train labels
+
+        #  FINAL ICD STATS
+
     com_full = comorbidity_df.merge(
         train[[subject_col, hadm_col, target_col]],
         on=[subject_col, hadm_col],
         how="inner"
     )
-    icd_mortality_global = com_full.groupby(icd_col)[target_col].mean()
 
-    # Apply to test set
+    icd_mortality_global = (
+        com_full.groupby(icd_col)[target_col]
+        .agg(['mean', 'count'])
+        .assign(smoothed=lambda df: (df['count'] * df['mean'] + smoothing * global_mean) / (df['count'] + smoothing))
+    )["smoothed"]
+    print('Here')
+
+    #  APPLY TO TEST DF
+
     test_com = comorbidity_df.merge(
         test[[subject_col, hadm_col]],
         on=[subject_col, hadm_col],
         how="inner"
     )
+
     test_com["mortality_proxy"] = test_com[icd_col].map(icd_mortality_global)
+    test_com["mortality_proxy"] = test_com["mortality_proxy"].fillna(global_mean)
 
     test_agg = test_com.groupby([subject_col, hadm_col]).agg(
         max_mortality=("mortality_proxy", "max"),
@@ -453,12 +470,11 @@ def oof_icd9_encoder(
         count_comorbidities=(icd_col, "count")
     ).reset_index()
 
-    test_features = test.merge(test_agg, on=[subject_col, hadm_col], how="left")
-    test_features[["max_mortality", "mean_mortality"]] = \
-        test_features[["max_mortality", "mean_mortality"]].fillna(0)
-    test_features["count_comorbidities"] = test_features["count_comorbidities"].fillna(0)
+    test_features = test.merge(test_agg, on=[subject_col, hadm_col], how="left").fillna(0)
 
-    # Build train fetures ouptut
+
+    #  RETURN TRAIN + TEST FEATURES
+
     train_features = train.copy()
     train_features["max_mortality"] = oof_max
     train_features["mean_mortality"] = oof_mean

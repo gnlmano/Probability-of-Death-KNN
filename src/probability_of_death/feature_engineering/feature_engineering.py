@@ -63,7 +63,8 @@ def encoder_icd9_codes(
     target_col = TARGET,
     subject_col= SUBJECT_ID,
     hadm_col= HADM_ID,
-    icd_col= ICD9_CODE):
+    icd_col= ICD9_CODE,
+    smoothing_factor = 20):
 
     comorbidity_df = comorbidity_df.copy()
     comorbidity_df = comorbidity_df.merge(
@@ -73,8 +74,16 @@ def encoder_icd9_codes(
     )
     logger.info("Comorbidity features merged with training data")
 
-    comorbidity_df[MORTALITY_PROXY] = comorbidity_df.groupby(icd_col)[target_col].transform("mean")
-    icd9_mapping = comorbidity_df.groupby([subject_col, hadm_col]).agg(
+    global_mean = train_df[TARGET].mean()
+
+    global_mapping = (comorbidity_df.groupby(icd_col)
+                      .agg(mean = (TARGET, 'mean'),
+                           count = (TARGET, 'count')).
+                      assign(smoothing = lambda df: (df['mean'] * df['count'] + smoothing_factor * global_mean) / (df['count'] + smoothing_factor)))
+
+    comorbidity_df[MORTALITY_PROXY] = comorbidity_df[icd_col].map(global_mapping['smoothing'])
+
+    icd9_mapping_agg = comorbidity_df.groupby([subject_col, hadm_col]).agg(
         **{
             MAX_MORTALITY: (MORTALITY_PROXY, "max"),
             MEAN_MORTALITY: (MORTALITY_PROXY, "mean"),
@@ -82,7 +91,7 @@ def encoder_icd9_codes(
         })
 
     train_df = train_df.merge(
-        icd9_mapping,
+        icd9_mapping_agg,
         on=[subject_col, hadm_col],
         how="left")
     logger.info("Comorbidity proxy features merged with training data")
@@ -98,7 +107,7 @@ def encoder_icd9_codes(
 
     logger.info("Missing mortality proxies replaced with zeros")
     logger.info("Training data with mortality proxies and ICD9 mapping created")
-    return train_df, icd9_mapping
+    return train_df, global_mapping, global_mean
 
 def apply_icd9_mapping(df,
                        mapping,
