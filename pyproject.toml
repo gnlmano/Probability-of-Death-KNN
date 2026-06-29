@@ -9,5 +9,8 @@ description = "Mortality prediction preprocessing/modeling pipeline"
 authors = [{name="Manohar Gannavarapu"}]
 requires-python = ">=3.9"
 
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
