@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import joblib
-from jedi.common import monkeypatch
+# from jedi.common import monkeypatch
 from pathlib import Path
 
 from tests.utils.synthetic_data import (
